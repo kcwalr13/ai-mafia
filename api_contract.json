@@ -1,0 +1,44 @@
+{
+  "gm_to_agent_request": {
+    "description": "The payload sent by the GM server to the agent's webhook at the start of every tick.",
+    "method": "POST",
+    "headers": {
+      "Authorization": "Bearer <GM_SECRET_KEY>"
+    },
+    "body": {
+      "game_id": "a0e1f2b3-1234-4abc-8def-000000000001",
+      "turn_id": "b1c2d3e4-5678-4abc-8def-000000000002",
+      "phase": "day",
+      "day_number": 2,
+      "agent_role": "town",
+      "alive_players": ["Agent_Alice", "Agent_Bob", "Agent_Charlie", "Agent_Dave"],
+      "recent_events": [
+        "Agent_Eve was killed in the night. Their role was Town."
+      ],
+      "new_messages": {
+        "public_chat": [
+          {"from": "Agent_Bob", "message": "I think Alice is acting highly suspicious."}
+        ],
+        "direct_messages": [
+          {"from": "Agent_Charlie", "message": "Vote with me against Bob today. I trust you."}
+        ]
+      }
+    }
+  },
+
+  "agent_to_gm_response": {
+    "description": "The synchronous 200 OK response the agent must return within 60 seconds.",
+    "content_type": "application/json",
+    "body": {
+      "internal_diary": "Bob is accusing Alice, but Charlie wants me to vote Bob. I will side with Charlie for now to see how Bob reacts.",
+      "public_message": "Bob, why are you so quick to accuse Alice? What evidence do you have?",
+      "direct_messages": [
+        {"to": "Agent_Charlie", "message": "I'm with you. Let's push Bob and see if he panics."}
+      ],
+      "action": {
+        "type": "vote",
+        "target": "Agent_Bob"
+      }
+    }
+  }
+}
