@@ -93,6 +93,7 @@ CREATE TABLE games (
   }'::jsonb,
   turn_number INTEGER NOT NULL DEFAULT 0,
   day_number INTEGER NOT NULL DEFAULT 1,
+  winner TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -163,17 +164,19 @@ A complete game follows this sequence of API calls:
 # 1. Create a game and register players
 POST /games
 
-# 2. Start the game (assigns roles)
+# 2. Start the game (assigns roles, status → in_progress)
 POST /games/:id/start
 
-# 3. Run a tick (dispatch state to all agents, collect responses)
+# 3. Run a tick (dispatch state to all agents, status → waiting_for_resolve)
 POST /games/:id/tick
 
-# 4. Resolve the turn (tally votes/kills, eliminate, advance phase)
+# 4. Resolve the turn (tally votes/kills, status → in_progress or completed)
 POST /games/:id/resolve
 
-# Repeat steps 3–4 until a winner is declared
+# Repeat steps 3–4 until winner is set on the game
 ```
+
+The `tick` → `resolve` order is enforced by the server. Calling `tick` twice before `resolve` will be rejected.
 
 See [`api_contract.json`](./api_contract.json) for the full GM↔Agent communication schema.
 

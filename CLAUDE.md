@@ -16,14 +16,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Game Master (GM) server for an AI Mafia game. It manages the full game lifecycle: creating games, assigning roles, dispatching game state to AI agents via webhooks, collecting and validating their responses, resolving votes and night kills, and detecting win conditions.
 
-**Entry point**: `index.js` — a single-file Express 5 app with seven endpoints:
+**Entry point**: `index.js` — a single-file Express 5 app with six endpoints:
 - `GET /` — health check
 - `GET /db-health` — inserts and reads a row to verify the database connection
 - `POST /games` — creates a new game and registers players
-- `POST /games/:id/start` — assigns roles and transitions game to in_progress
-- `POST /games/:id/tick` — dispatches game state to all alive agents, collects responses, logs results to action_logs
-- `POST /games/:id/resolve` — tallies votes/kills, eliminates players, checks win conditions, advances phase
-- `POST /agent-response` — validates agent turn responses using Zod
+- `POST /games/:id/start` — assigns roles and transitions game to `in_progress`
+- `POST /games/:id/tick` — dispatches game state to all alive agents, collects responses, logs results to action_logs, transitions game to `waiting_for_resolve`
+- `POST /games/:id/resolve` — tallies votes/kills, eliminates players, checks win conditions, transitions game to `in_progress` (next phase) or `completed`
 
 **`POST /games` request body:**
 ```
@@ -109,11 +108,12 @@ Supabase (PostgreSQL). Connection is configured in `db.js` using credentials fro
 
 Current tables and notable columns:
 - `games` — tracks active, pending, and completed matches
-  - `status`: `'pending'` | `'in_progress'` | `'completed'`
+  - `status`: `'pending'` | `'in_progress'` | `'waiting_for_resolve'` | `'completed'`
   - `phase`: `'lobby'` | `'day'` | `'night'`
   - `config`: JSONB game configuration (see `DEFAULT_CONFIG` in `index.js`)
   - `turn_number`: increments each tick
   - `day_number`: increments each night→day transition
+  - `winner`: `null` | `'town'` | `'mafia'` — set when game is completed
 - `players` — agents registered to a game with their roles and webhook URLs
   - `role`: `'unassigned'` | `'town'` | `'mafia'` (more in V2)
   - `is_alive`: boolean

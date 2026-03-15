@@ -36,12 +36,14 @@
       "tick": {
         "method": "POST",
         "path": "/games/:id/tick",
-        "description": "Dispatches the current game state to all alive agents via POST to their webhook URLs. Collects responses, logs them to action_logs. Defaults to 'abstain' on timeout (60s), error, or invalid response. Eliminates agents with 3 consecutive failures."
+        "description": "Dispatches the current game state to all alive agents via POST to their webhook URLs. Collects responses, logs them to action_logs. Defaults to 'abstain' on timeout (60s), error, or invalid response. Eliminates agents with 3 consecutive failures. Transitions game status to 'waiting_for_resolve'. Must be called before resolve.",
+        "required_status": "in_progress"
       },
       "resolve": {
         "method": "POST",
         "path": "/games/:id/resolve",
-        "description": "Tallies actions from the latest turn. Eliminates the plurality vote target (day) or kill target (night). Checks win conditions. Advances the phase. Returns the resolution summary including eliminated player and winner (if any).",
+        "description": "Tallies actions from the latest turn. Eliminates the plurality vote target (day) or kill target (night). Checks win conditions. Transitions game to 'in_progress' (next phase) or 'completed' with winner set. Must be called after tick.",
+        "required_status": "waiting_for_resolve",
         "phase_rules": {
           "day": "Tallies 'vote' actions. Plurality winner eliminated. Ties = no elimination. Advances to 'night'.",
           "night": "Tallies 'mafia_kill' actions from alive mafia players only. Plurality target eliminated. Ties = no kill. Advances to 'day', increments day_number."

@@ -50,24 +50,6 @@ app.get('/', (req, res) => {
     res.json({ message: 'Hello from the GM server!' });
 });
 
-app.post('/agent-response', (req, res) => {
-  const body = req.body;
-  console.log('Received payload:', body);
-
-  const result = AgentResponseSchema.safeParse(body);
-
-  if (!result.success) {
-    return res.status(400).json({
-      status: 'rejected',
-      errors: result.error.format()
-    });
-  }
-
-  res.json({
-    status: 'received',
-    echo: result.data
-  });
-});
 
 app.post('/games', async (req, res) => {
   const result = CreateGameSchema.safeParse(req.body);
@@ -77,7 +59,11 @@ app.post('/games', async (req, res) => {
   }
 
   const { players, config: configOverride } = result.data;
-  const config = { ...DEFAULT_CONFIG, ...configOverride };
+  const config = {
+    ...DEFAULT_CONFIG,
+    ...configOverride,
+    roles: { ...DEFAULT_CONFIG.roles, ...(configOverride?.roles ?? {}) }
+  };
 
   if (players.length < config.min_players) {
     return res.status(400).json({
@@ -216,7 +202,9 @@ app.post('/games/:id/tick', async (req, res) => {
   if (game.status !== 'in_progress') {
     return res.status(400).json({
       status: 'rejected',
-      error: `Tick cannot be run — game status is '${game.status}'.`
+      error: game.status === 'waiting_for_resolve'
+        ? 'Tick cannot be run — this turn has not been resolved yet. Call POST /games/:id/resolve first.'
+        : `Tick cannot be run — game status is '${game.status}'.`
     });
   }
 
@@ -235,7 +223,7 @@ app.post('/games/:id/tick', async (req, res) => {
 
   const { error: turnUpdateError } = await supabase
     .from('games')
-    .update({ turn_number: turnNumber })
+    .update({ turn_number: turnNumber, status: 'waiting_for_resolve' })
     .eq('id', game.id);
 
   if (turnUpdateError) {
@@ -349,10 +337,12 @@ app.post('/games/:id/resolve', async (req, res) => {
     return res.status(404).json({ status: 'error', error: 'Game not found.' });
   }
 
-  if (game.status !== 'in_progress') {
+  if (game.status !== 'waiting_for_resolve') {
     return res.status(400).json({
       status: 'rejected',
-      error: `Cannot resolve — game status is '${game.status}'.`
+      error: game.status === 'in_progress'
+        ? 'Cannot resolve — no tick has been run yet this turn. Call POST /games/:id/tick first.'
+        : `Cannot resolve — game status is '${game.status}'.`
     });
   }
 
@@ -464,11 +454,11 @@ app.post('/games/:id/resolve', async (req, res) => {
   // Advance phase or end game
   let gameUpdates;
   if (winner) {
-    gameUpdates = { status: 'completed' };
+    gameUpdates = { status: 'completed', winner };
   } else if (game.phase === 'day') {
-    gameUpdates = { phase: 'night' };
+    gameUpdates = { status: 'in_progress', phase: 'night' };
   } else {
-    gameUpdates = { phase: 'day', day_number: game.day_number + 1 };
+    gameUpdates = { status: 'in_progress', phase: 'day', day_number: game.day_number + 1 };
   }
 
   const { data: updatedGame, error: gameUpdateError } = await supabase
