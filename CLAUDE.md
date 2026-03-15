@@ -94,6 +94,17 @@ leaderboards.
 6. Create `frontend/.env.local` with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 7. `cd frontend && npm run dev` — start the spectator UI
 
+## Known Issues (Next Session)
+
+These were identified in a post-V1 architectural review. See `ROADMAP.md` (V1 Polish section) for the full list. The highest-priority items:
+
+1. **Agents are blind** — `recent_events` and `new_messages` are hardcoded as empty arrays in `/tick`. Agents receive no game history and cannot play meaningfully. Must be populated from `action_logs`.
+2. **No automated game loop** — A game requires manual calls to `/tick` and `/resolve` in alternation. Needs an internal loop.
+3. **No GET endpoints** — `GET /games` and `GET /games/:id` are missing. Game state is not readable via the GM API.
+4. **`/db-health` pollutes the DB** — Each call inserts a junk row into `games`. Replace with a SELECT.
+5. **Spectator UI player roster goes stale** — Realtime subscription only covers `action_logs`. Player `is_alive` changes are not reflected until page refresh.
+6. **Supabase RLS not enabled** — The browser anon key has write access to all tables.
+
 ## Mentorship Notes
 
 The human working on this project is a beginner to backend development. Always:
