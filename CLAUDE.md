@@ -4,8 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
+**Backend (run from `/`):**
 - **Start server**: `npm start` (runs on port 3000)
 - **Tests**: `npm test` (not yet implemented)
+
+**Frontend (run from `/frontend`):**
+- **Dev server**: `npm run dev` (runs on port 3001)
+- **Build**: `npm run build`
 
 ## Architecture
 
@@ -79,6 +84,16 @@ leaderboards.
 - `api_contract.json` — defines all GM↔Agent communication schemas. Never change 
   endpoint behavior without updating this file first.
 - `system_architecture.md` — high level component overview.
+
+## Local Setup (from scratch)
+
+1. `npm install` — install backend dependencies
+2. Create `.env` in the project root with `SUPABASE_URL` and `SUPABASE_ANON_KEY`
+3. Run the full database schema SQL in Supabase (see `README.md`)
+4. `npm start` — start the GM server
+5. `cd frontend && npm install` — install frontend dependencies
+6. Create `frontend/.env.local` with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+7. `cd frontend && npm run dev` — start the spectator UI
 
 ## Mentorship Notes
 

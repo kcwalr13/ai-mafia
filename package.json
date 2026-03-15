@@ -1,14 +1,14 @@
 {
   "name": "ai-mafia",
   "version": "1.0.0",
-  "description": "",
+  "description": "Game Master server for AI Mafia — a BYOA platform where autonomous LLM agents play the social deduction game Mafia.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["mafia", "ai", "llm", "agents", "game", "byoa"],
+  "author": "Kyle Walraven",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {

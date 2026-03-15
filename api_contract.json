@@ -1,4 +1,59 @@
 {
+  "_readme": "This file is the source of truth for all GM communication schemas. Never change endpoint behavior without updating this file first.",
+
+  "gm_platform_api": {
+    "description": "Endpoints used to create and drive games. Called by a game operator (human or script), not by agents.",
+    "base_url": "http://localhost:3000",
+    "endpoints": {
+      "create_game": {
+        "method": "POST",
+        "path": "/games",
+        "description": "Creates a new game and registers players. Returns 201 with the created game and players.",
+        "body": {
+          "players": [
+            { "agent_name": "Agent_Alice", "webhook_url": "https://alice.example.com/webhook" },
+            { "agent_name": "Agent_Bob",   "webhook_url": "https://bob.example.com/webhook" },
+            { "agent_name": "Agent_Carol", "webhook_url": "https://carol.example.com/webhook" },
+            { "agent_name": "Agent_Dave",  "webhook_url": "https://dave.example.com/webhook" }
+          ],
+          "config": {
+            "_note": "Optional. Omit to use DEFAULT_CONFIG (4 players, 3 town + 1 mafia).",
+            "min_players": 4,
+            "max_players": 10,
+            "roles": { "town": 3, "mafia": 1 }
+          }
+        },
+        "validation": [
+          "Player count must be >= config.min_players and <= config.max_players",
+          "Sum of role counts must equal exactly the number of players"
+        ]
+      },
+      "start_game": {
+        "method": "POST",
+        "path": "/games/:id/start",
+        "description": "Randomly assigns roles to players and transitions the game from 'pending' to 'in_progress'. Phase is set to 'day'."
+      },
+      "tick": {
+        "method": "POST",
+        "path": "/games/:id/tick",
+        "description": "Dispatches the current game state to all alive agents via POST to their webhook URLs. Collects responses, logs them to action_logs. Defaults to 'abstain' on timeout (60s), error, or invalid response. Eliminates agents with 3 consecutive failures."
+      },
+      "resolve": {
+        "method": "POST",
+        "path": "/games/:id/resolve",
+        "description": "Tallies actions from the latest turn. Eliminates the plurality vote target (day) or kill target (night). Checks win conditions. Advances the phase. Returns the resolution summary including eliminated player and winner (if any).",
+        "phase_rules": {
+          "day": "Tallies 'vote' actions. Plurality winner eliminated. Ties = no elimination. Advances to 'night'.",
+          "night": "Tallies 'mafia_kill' actions from alive mafia players only. Plurality target eliminated. Ties = no kill. Advances to 'day', increments day_number."
+        },
+        "win_conditions": {
+          "town": "All mafia players are eliminated.",
+          "mafia": "Mafia count >= town count (mafia cannot be outvoted)."
+        }
+      }
+    }
+  },
+
   "gm_to_agent_request": {
     "description": "The payload sent by the GM server to the agent's webhook at the start of every tick.",
     "method": "POST",
@@ -29,6 +84,8 @@
   "agent_to_gm_response": {
     "description": "The synchronous 200 OK response the agent must return within 60 seconds.",
     "content_type": "application/json",
+    "timeout_seconds": 60,
+    "failure_policy": "3 consecutive failures (timeout, error, or invalid response) result in the agent being eliminated.",
     "body": {
       "internal_diary": "Bob is accusing Alice, but Charlie wants me to vote Bob. I will side with Charlie for now to see how Bob reacts.",
       "public_message": "Bob, why are you so quick to accuse Alice? What evidence do you have?",
@@ -36,9 +93,17 @@
         {"to": "Agent_Charlie", "message": "I'm with you. Let's push Bob and see if he panics."}
       ],
       "action": {
+        "_note": "Required. 'target' is required for vote and mafia_kill.",
         "type": "vote",
         "target": "Agent_Bob"
       }
+    },
+    "valid_action_types": {
+      "vote": "Day phase. Vote to eliminate a player. Requires 'target'.",
+      "abstain": "Any phase. Take no action.",
+      "mafia_kill": "Night phase. Mafia only. Select a player to eliminate. Requires 'target'.",
+      "investigate": "Night phase. Cop only (V2). Requires 'target'.",
+      "protect": "Night phase. Medic only (V2). Requires 'target'."
     }
   }
 }
