@@ -45,9 +45,9 @@ These items were identified in a post-V1 architectural review. Complete before b
          A future session should implement a polling-based recovery mechanism.
 
 ### Security
-- [ ] Enable Supabase Row Level Security (RLS) on all tables
-      → Currently the anon key used by the browser has write access to the DB
-      → Requires GM server to switch to SUPABASE_SERVICE_ROLE_KEY in db.js
+- [x] Enable Supabase Row Level Security (RLS) on all tables
+      → Browser anon key now has SELECT-only access via RLS policies
+      → GM server uses SUPABASE_SERVICE_ROLE_KEY in db.js (bypasses RLS)
 
 ### Frontend
 - [x] Fix stale player roster in spectator UI

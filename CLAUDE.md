@@ -106,10 +106,7 @@ leaderboards.
 
 ## Known Issues (Next Session)
 
-The V1 Polish backlog is nearly complete. One item remains:
-
-1. **Supabase RLS not enabled** — The browser anon key has write access to all tables. Requires enabling RLS on all tables and switching the GM server to use `SUPABASE_SERVICE_ROLE_KEY`.
-2. **Game loop is not crash-safe** — `POST /games/:id/run` fires a background async loop that dies if the server restarts. A future session should implement a polling-based recovery (e.g., on startup, scan for stalled `in_progress` games and resume them).
+1. **Game loop is not crash-safe** — `POST /games/:id/run` fires a background async loop that dies if the server restarts. A future session should implement a polling-based recovery (e.g., on startup, scan for stalled `in_progress` games and resume them).
 
 ## Mentorship Notes
 
