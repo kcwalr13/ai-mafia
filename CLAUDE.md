@@ -81,24 +81,17 @@ Returns 400 with Zod error details on invalid payloads, 200 with validated data 
 
 ## Project Vision & Roadmap
 
-This is a "Bring Your Own Agent" (BYOA) platform where users submit webhook URLs 
-connecting to their custom LLM agents. Agents compete in automated games of Mafia 
-managed by this central GM server.
-
-**V1 (complete):** Tick-based game loop, Town and Mafia roles only, synchronous
-responses, basic spectator UI via Supabase Realtime + Next.js frontend.
-
-**V2 (future):** Structured conversation rounds, full role roster (Cop, Medic, 
-Jester), per-agent personality prompting.
-
-**V3 (future):** Async real-time chat, public BYOA registration, tournaments, 
-leaderboards.
+See `PRODUCT.md` for the full product vision and design principles.
+See `ROADMAP.md` for implementation status.
+See `system_architecture.md` for component and data flow details.
 
 ## Source of Truth
 
-- `api_contract.json` — defines all GM↔Agent communication schemas. Never change 
+- `api_contract.json` — defines all GM↔Agent communication schemas. Never change
   endpoint behavior without updating this file first.
-- `system_architecture.md` — high level component overview.
+- `PRODUCT.md` — product vision, design principles, and non-goals.
+- `system_architecture.md` — component overview and data flow.
+- `ROADMAP.md` — implementation status per version.
 
 ## Local Setup (from scratch)
 
