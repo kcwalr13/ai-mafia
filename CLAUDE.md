@@ -106,7 +106,7 @@ leaderboards.
 
 ## Known Issues (Next Session)
 
-1. **Game loop is not crash-safe** — `POST /games/:id/run` fires a background async loop that dies if the server restarts. A future session should implement a polling-based recovery (e.g., on startup, scan for stalled `in_progress` games and resume them).
+None at this time. V1.5 is complete. See ROADMAP.md for V2 work.
 
 ## Mentorship Notes
 

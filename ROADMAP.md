@@ -64,15 +64,11 @@ Identified in a post-V1 architectural review.
 ## V1.5 (Next) — Reliability
 One item of infrastructure debt to resolve before adding V2 complexity.
 
-- [ ] Game loop crash recovery
-      → Problem: POST /games/:id/run fires a fire-and-forget async loop. If the server
-         restarts mid-game, the loop dies silently and the game stalls forever in
-         'in_progress' or 'waiting_for_resolve'.
-      → Fix: On server startup, query for any games stuck in those two statuses and
-         automatically resume their loops. Since the GM server is stateless (all state
-         is in the DB), resuming is as simple as calling runGameLoop(gameId) again.
-      → Implementation: Add a recoverStalled() function called once at startup, after
-         the Express server begins listening.
+- [x] Game loop crash recovery
+      → On startup, recoverStalledGames() queries for games in 'in_progress' or
+         'waiting_for_resolve' and resumes their loops automatically.
+      → 'waiting_for_resolve' games run performResolve() first, then continue.
+      → 'in_progress' games resume directly from the next tick.
 
 ---
 

@@ -393,8 +393,6 @@ async function performResolve(gameId) {
 }
 
 // Runs a game to completion in the background (fire-and-forget).
-// NOTE: Not crash-safe — if the server restarts, the loop dies and the game stalls.
-// A future session should implement a polling-based recovery mechanism.
 async function runGameLoop(gameId) {
   console.log(`[run] Game ${gameId}: loop started`);
   try {
@@ -651,6 +649,52 @@ app.get('/db-health', async (req, res) => {
   res.json({ status: 'ok' });
 });
 
+// On startup, find any games that were left in a stalled state (e.g. server
+// restarted mid-loop) and resume them automatically.
+async function recoverStalledGames() {
+  const { data: stalledGames, error } = await supabase
+    .from('games')
+    .select('id, status')
+    .in('status', ['in_progress', 'waiting_for_resolve']);
+
+  if (error) {
+    console.error('[recovery] Failed to query stalled games:', error.message);
+    return;
+  }
+
+  if (!stalledGames || stalledGames.length === 0) {
+    console.log('[recovery] No stalled games found.');
+    return;
+  }
+
+  console.log(`[recovery] Found ${stalledGames.length} stalled game(s). Resuming...`);
+
+  for (const game of stalledGames) {
+    console.log(`[recovery] Resuming game ${game.id} (status: ${game.status})`);
+
+    if (game.status === 'waiting_for_resolve') {
+      // Finish the pending resolve first, then continue the loop if no winner yet.
+      (async () => {
+        try {
+          const resolveData = await performResolve(game.id);
+          console.log(`[recovery] Game ${game.id}: resolve complete`);
+          if (!resolveData.winner) {
+            runGameLoop(game.id);
+          } else {
+            console.log(`[recovery] Game ${game.id}: already complete — winner is ${resolveData.winner}`);
+          }
+        } catch (err) {
+          console.error(`[recovery] Game ${game.id}: failed to resolve — ${err.message}`);
+        }
+      })();
+    } else {
+      // in_progress — resume the loop from the next tick.
+      runGameLoop(game.id);
+    }
+  }
+}
+
 app.listen(3000, () => {
   console.log('GM server is running on port 3000');
+  recoverStalledGames();
 });
