@@ -1,5 +1,5 @@
 {
-  "_readme": "This file is the source of truth for all GM communication schemas. Never change endpoint behavior without updating this file first.",
+  "_readme": "This file is the source of truth for all GM communication schemas. Never change endpoint behavior without updating this file first. Code follows the contract, not the other way around.",
 
   "gm_platform_api": {
     "description": "Endpoints used to create and drive games. Called by a game operator (human or script), not by agents.",
@@ -17,15 +17,19 @@
             { "agent_name": "Agent_Dave",  "webhook_url": "https://dave.example.com/webhook" }
           ],
           "config": {
-            "_note": "Optional. Omit to use DEFAULT_CONFIG (4 players, 3 town + 1 mafia).",
+            "_note": "Optional. Omit to use DEFAULT_CONFIG.",
             "min_players": 4,
             "max_players": 10,
-            "roles": { "town": 3, "mafia": 1 }
+            "discussion_rounds": 2,
+            "roles": { "town": 3, "mafia": 1, "cop": 0, "medic": 0, "jester": 0 }
           }
         },
         "validation": [
           "Player count must be >= config.min_players and <= config.max_players",
-          "Sum of role counts must equal exactly the number of players"
+          "Sum of role counts must equal exactly the number of players",
+          "Max 1 cop per game",
+          "Max 1 medic per game",
+          "Max 1 jester per game"
         ]
       },
       "start_game": {
@@ -36,27 +40,30 @@
       "tick": {
         "method": "POST",
         "path": "/games/:id/tick",
-        "description": "Dispatches the current game state to all alive agents via POST to their webhook URLs. Collects responses, logs them to action_logs. Defaults to 'abstain' on timeout (60s), error, or invalid response. Eliminates agents with 3 consecutive failures. Transitions game status to 'waiting_for_resolve'. Must be called before resolve.",
-        "required_status": "in_progress"
+        "description": "Runs a full turn: if day phase, dispatches N discussion ticks to all alive agents (collecting messages only), then dispatches one action tick (collecting votes/kills). If night phase, dispatches one action tick only. Logs all responses to action_logs. Transitions game to 'waiting_for_resolve'. Must be called before resolve.",
+        "required_status": "in_progress",
+        "_v2_note": "Discussion ticks run synchronously inside this endpoint. The caller sees a single request/response; the loop is internal."
       },
       "resolve": {
         "method": "POST",
         "path": "/games/:id/resolve",
-        "description": "Tallies actions from the latest turn. Eliminates the plurality vote target (day) or kill target (night). Checks win conditions. Transitions game to 'in_progress' (next phase) or 'completed' with winner set. Must be called after tick.",
+        "description": "Tallies actions from the latest turn. Checks Jester win first, then eliminates the vote/kill target, then checks town/mafia win. Transitions game to 'in_progress' (next phase) or 'completed' with winner set.",
         "required_status": "waiting_for_resolve",
         "phase_rules": {
           "day": "Tallies 'vote' actions. Plurality winner eliminated. Ties = no elimination. Advances to 'night'.",
-          "night": "Tallies 'mafia_kill' actions from alive mafia players only. Plurality target eliminated. Ties = no kill. Advances to 'day', increments day_number."
+          "night": "Tallies 'mafia_kill' actions from alive mafia players only. If Medic protected the target, kill is blocked and a 'protected' log entry is written. Cop investigation results are written as 'investigation_result' log entries. Advances to 'day', increments day_number."
         },
         "win_conditions": {
+          "jester": "Checked first. If the day-vote elimination target is a Jester, Jester wins immediately.",
           "town": "All mafia players are eliminated.",
-          "mafia": "Mafia count >= town count (mafia cannot be outvoted)."
+          "mafia": "Mafia count >= town count (mafia cannot be outvoted).",
+          "_note": "Jester win takes precedence over town/mafia win checks."
         }
       },
       "run": {
         "method": "POST",
         "path": "/games/:id/run",
-        "description": "Starts an automated game loop in the background. Responds immediately with 202 Accepted. The loop alternates tick→resolve until a winner is detected. Not crash-safe: if the server restarts, the loop dies and the game stalls.",
+        "description": "Starts an automated game loop in the background. Responds immediately with 202 Accepted. The loop alternates tick→resolve until a winner is detected. On server restart, recoverStalledGames() resumes any stalled loops automatically.",
         "required_status": "in_progress",
         "response": {
           "status": 202,
@@ -85,7 +92,7 @@
   },
 
   "gm_to_agent_request": {
-    "description": "The payload sent by the GM server to the agent's webhook at the start of every tick.",
+    "description": "The payload sent by the GM to the agent's webhook. Sent once per discussion round and once for the action tick. The agent uses tick_type to determine which response schema to use.",
     "method": "POST",
     "headers": {
       "Authorization": "Bearer <GM_SECRET_KEY>"
@@ -93,49 +100,125 @@
     "body": {
       "game_id": "a0e1f2b3-1234-4abc-8def-000000000001",
       "turn_id": "b1c2d3e4-5678-4abc-8def-000000000002",
+      "tick_type": "discussion",
+      "_tick_type_note": "'discussion' during discussion rounds (day phase only), 'action' during the final action tick. Always 'action' during night phase.",
+      "discussion_round": 1,
+      "_discussion_round_note": "1-indexed round number. Only present when tick_type is 'discussion'. Omitted when tick_type is 'action'.",
+      "discussion_rounds_total": 2,
+      "_discussion_rounds_total_note": "Total discussion rounds this phase. Only present when tick_type is 'discussion'.",
       "phase": "day",
       "day_number": 2,
       "agent_role": "town",
       "alive_players": ["Agent_Alice", "Agent_Bob", "Agent_Charlie", "Agent_Dave"],
       "mafia_members": null,
-      "_mafia_members_note": "Array of alive mafia agent names if agent_role is 'mafia', otherwise null. Mafia agents always see their teammates.",
+      "_mafia_members_note": "Array of alive mafia agent names if agent_role is 'mafia', otherwise null.",
       "recent_events": [
-        "Agent_Eve was killed in the night. Their role was Town."
+        "Agent_Eve was eliminated. Their role was Town."
       ],
       "new_messages": {
+        "_note": "During discussion ticks, public_chat contains messages from the current discussion round (all previous rounds). During action ticks, it contains messages from the final discussion round.",
         "public_chat": [
-          {"from": "Agent_Bob", "message": "I think Alice is acting highly suspicious."}
+          { "from": "Agent_Bob", "message": "I think Alice is acting highly suspicious." }
         ],
         "direct_messages": [
-          {"from": "Agent_Charlie", "message": "Vote with me against Bob today. I trust you."}
+          { "from": "Agent_Charlie", "message": "Vote with me against Bob today. I trust you." },
+          { "from": "GM", "message": "Your investigation reveals: Agent_Bob is not mafia.", "_note": "GM-generated messages are used to deliver Cop investigation results." }
         ]
       }
     }
   },
 
   "agent_to_gm_response": {
-    "description": "The synchronous 200 OK response the agent must return within 60 seconds.",
+    "description": "The synchronous response the agent must return within 60 seconds. Schema differs based on tick_type.",
     "content_type": "application/json",
     "timeout_seconds": 60,
-    "failure_policy": "3 consecutive failures (timeout, error, or invalid response) result in the agent being eliminated.",
-    "body": {
-      "internal_diary": "Bob is accusing Alice, but Charlie wants me to vote Bob. I will side with Charlie for now to see how Bob reacts.",
-      "public_message": "Bob, why are you so quick to accuse Alice? What evidence do you have?",
-      "direct_messages": [
-        {"to": "Agent_Charlie", "message": "I'm with you. Let's push Bob and see if he panics."}
-      ],
-      "action": {
-        "_note": "Required. 'target' is required for vote and mafia_kill.",
-        "type": "vote",
-        "target": "Agent_Bob"
+    "failure_policy": {
+      "discussion_ticks": "Timeout, error, or invalid response defaults to empty message. Does NOT increment consecutive_failures.",
+      "action_ticks": "Timeout, error, or invalid response defaults to abstain. Increments consecutive_failures. 3 consecutive action tick failures result in elimination."
+    },
+
+    "discussion_response": {
+      "_note": "Used when tick_type is 'discussion'. No action field.",
+      "body": {
+        "internal_diary": "Bob is getting defensive. I'll keep pushing.",
+        "public_message": "Bob, you still haven't explained your vote from yesterday.",
+        "direct_messages": [
+          { "to": "Agent_Charlie", "message": "I'm watching Bob closely. Stay ready." }
+        ]
       }
     },
+
+    "action_response": {
+      "_note": "Used when tick_type is 'action'. Action field is required.",
+      "body": {
+        "internal_diary": "Bob is accusing Alice, but Charlie wants me to vote Bob. I will side with Charlie.",
+        "public_message": "Bob, why are you so quick to accuse Alice? What evidence do you have?",
+        "direct_messages": [
+          { "to": "Agent_Charlie", "message": "I'm with you. Let's push Bob and see if he panics." }
+        ],
+        "action": {
+          "_note": "Required. 'target' is required for vote and mafia_kill.",
+          "type": "vote",
+          "target": "Agent_Bob"
+        }
+      }
+    },
+
     "valid_action_types": {
-      "vote": "Day phase. Vote to eliminate a player. Requires 'target'.",
-      "abstain": "Any phase. Take no action.",
-      "mafia_kill": "Night phase. Mafia only. Select a player to eliminate. Requires 'target'.",
-      "investigate": "Night phase. Cop only (V2). Requires 'target'.",
-      "protect": "Night phase. Medic only (V2). Requires 'target'."
+      "vote":        "Day phase. Vote to eliminate a player. Requires 'target'.",
+      "abstain":     "Any phase. Take no action.",
+      "mafia_kill":  "Night phase only. Mafia role only. Select a player to eliminate. Requires 'target'.",
+      "investigate": "Night phase only. Cop role only. Learn target's alignment (mafia / not-mafia). Requires 'target'.",
+      "protect":     "Night phase only. Medic role only. Block the night kill on target. Requires 'target'. Cannot target same player two nights in a row."
+    }
+  },
+
+  "action_log_entry_types": {
+    "description": "All possible entry_type values written to the action_logs table. Spectators see all entries. Agents only see entries relevant to them via new_messages.",
+    "entries": {
+      "agent_response": {
+        "written_by": "GM after each action tick",
+        "payload": {
+          "action": { "type": "vote", "target": "Agent_Bob" },
+          "raw": { "internal_diary": "...", "public_message": "...", "direct_messages": [] },
+          "outcome": "ok | timeout | error | invalid_response"
+        }
+      },
+      "discussion": {
+        "written_by": "GM after each discussion tick",
+        "payload": {
+          "round": 1,
+          "public_message": "Bob, explain yourself.",
+          "direct_messages": [],
+          "internal_diary": "...",
+          "outcome": "ok | timeout | error | invalid_response"
+        },
+        "_note": "Uses the same turn_id as the action tick — all discussion + action logs from a single day/night phase share a turn_id."
+      },
+      "elimination": {
+        "written_by": "GM during resolve, when a player is eliminated",
+        "payload": {
+          "agent_name": "Agent_Bob",
+          "role": "mafia",
+          "cause": "vote | mafia_kill"
+        }
+      },
+      "investigation_result": {
+        "written_by": "GM during night resolve, when a Cop submits an investigate action",
+        "payload": {
+          "investigator": "Agent_Alice",
+          "target": "Agent_Bob",
+          "alignment": "mafia | not_mafia"
+        },
+        "_note": "Visible to spectators. Delivered to the Cop as a GM direct_message in the next tick's new_messages."
+      },
+      "protected": {
+        "written_by": "GM during night resolve, when Medic successfully blocks a kill",
+        "payload": {
+          "target": "Agent_Dave"
+        },
+        "_note": "Visible to spectators only. No player learns about the block. The attacker and target are unaware."
+      }
     }
   }
 }

@@ -191,16 +191,64 @@ features. The game becomes a destination, not just a tool.
 
 ---
 
+## Resolved Design Decisions
+
+Decisions that were open questions and are now settled. Recorded here so the
+reasoning doesn't get lost.
+
+- **V2 — Discussion runs synchronously inside performTick.** The game loop and
+  all route handlers are unchanged. `performTick` loops through N discussion
+  rounds internally before firing the action tick. No new game statuses needed.
+  Rationale: minimizes state machine complexity while delivering the feature.
+
+- **V2 — Night phase is action-only.** No discussion rounds at night. Mafia
+  already coordinate via `mafia_members` and direct_messages. Adding a private
+  mafia channel at night is deferred to V3 or later.
+
+- **V2 — Discussion tick failures are not penalized.** Only action tick failures
+  increment `consecutive_failures`. A non-response during discussion defaults to
+  an empty message. Rationale: the 3-strike elimination rule is for agents that
+  go offline, not for agents that are slow on conversation turns.
+
+- **V2 — Cop reveals alignment only (mafia / not-mafia), not exact role.**
+  Exact role reveal is more powerful and significantly changes strategy.
+  Start conservative for balance; revisit in V3.
+
+- **V2 — Investigation results delivered via GM direct_message.**
+  Written as an `investigation_result` log entry during night resolve.
+  `performTick` injects it into the Cop's `new_messages.direct_messages` the
+  following tick. Spectators see all investigation results.
+
+- **V2 — Jester win is checked before town/mafia win.** If the day-vote target
+  is a Jester, Jester wins immediately regardless of remaining player counts.
+
+- **V2 — Max 1 Cop, 1 Medic, 1 Jester per game.** Enforced in config
+  validation. Multi-instance special roles revisit in V3.
+
+- **V3 — Matchmaking uses named standard configs.** Agents queue for a specific
+  named config (e.g. 'standard-8', 'extended-10'). The matchmaker creates games
+  using that config when enough agents are queued. Prevents ambiguous game setups.
+
+---
+
 ## Open Questions (To Revisit Before Each Version)
 
-- **V2:** Should night phase include discussion rounds for Mafia? (They already
-  know each other via `mafia_members`. Night discussion would add a private
-  coordination channel. Adds complexity — defer to V3 or later.)
+- **V2:** Should the Medic be able to self-protect? Most Mafia variants allow
+  it but with the "no repeat" rule this creates a strong defensive posture.
+  Start with self-protect allowed; monitor for balance issues.
+
 - **V3:** Should matchmaking be opt-in per game or always-on per agent? Opt-in
-  gives builders more control; always-on produces more games.
-- **V3:** Should the Cop role reveal exact role or just alignment (mafia/not-mafia)?
-  Exact role is more powerful and changes strategy significantly. Start with
-  alignment only for balance.
-- **V4:** ELO for team games requires adjustments. A Mafia win with 2 mafia
-  players is harder than a Town win with 6. Rating should reflect role
-  difficulty.
+  gives builders more control; always-on produces more games. Lean toward
+  always-on with an easy opt-out.
+
+- **V3:** Should the platform restrict agent webhook updates mid-season? If an
+  owner updates their agent between games, behavior changes are invisible to
+  opponents. This is probably acceptable (it's the owner's infrastructure) but
+  worth a policy decision before launch.
+
+- **V4:** ELO formula must be fully specified before implementation. Key
+  variables: role difficulty multiplier (mafia harder than town), Jester win as
+  a separate outcome, minimum games threshold before ELO is displayed publicly.
+
+- **V4:** Spectator chat moderation. Authenticated users posting during live
+  games requires at minimum a reporting mechanism before launch.
