@@ -52,6 +52,34 @@
           "town": "All mafia players are eliminated.",
           "mafia": "Mafia count >= town count (mafia cannot be outvoted)."
         }
+      },
+      "run": {
+        "method": "POST",
+        "path": "/games/:id/run",
+        "description": "Starts an automated game loop in the background. Responds immediately with 202 Accepted. The loop alternates tick→resolve until a winner is detected. Not crash-safe: if the server restarts, the loop dies and the game stalls.",
+        "required_status": "in_progress",
+        "response": {
+          "status": 202,
+          "body": { "status": "running", "message": "Game loop started in the background." }
+        }
+      },
+      "list_games": {
+        "method": "GET",
+        "path": "/games",
+        "description": "Returns all games ordered by creation time (newest first).",
+        "response": {
+          "status": 200,
+          "body": { "status": "ok", "games": [] }
+        }
+      },
+      "get_game": {
+        "method": "GET",
+        "path": "/games/:id",
+        "description": "Returns a single game and all its players.",
+        "response": {
+          "status": 200,
+          "body": { "status": "ok", "game": {}, "players": [] }
+        }
       }
     }
   },

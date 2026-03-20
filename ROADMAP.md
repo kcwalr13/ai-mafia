@@ -36,21 +36,22 @@ Town and Mafia roles only. Synchronous responses. Basic spectator UI.
 These items were identified in a post-V1 architectural review. Complete before building V2.
 
 ### Backend
-- [ ] Populate `recent_events` and `new_messages` in tick payload from action_logs
-      → Currently always empty; agents cannot make informed decisions without this
-- [ ] Fix /db-health — replace INSERT with SELECT to avoid polluting the games table
-- [ ] Add GET /games — list all games with status
-- [ ] Add GET /games/:id — read current game state via the GM API
-- [ ] Design and implement automated game loop — games should run to completion
-      without manual tick/resolve calls
+- [x] Populate `recent_events` and `new_messages` in tick payload from action_logs
+- [x] Fix /db-health — replace INSERT with SELECT to avoid polluting the games table
+- [x] Add GET /games — list all games with status
+- [x] Add GET /games/:id — read current game state via the GM API
+- [x] Automated game loop — POST /games/:id/run fires a background tick→resolve loop
+      → NOTE: Not crash-safe. If server restarts mid-game, loop dies and game stalls.
+         A future session should implement a polling-based recovery mechanism.
 
 ### Security
 - [ ] Enable Supabase Row Level Security (RLS) on all tables
       → Currently the anon key used by the browser has write access to the DB
+      → Requires GM server to switch to SUPABASE_SERVICE_ROLE_KEY in db.js
 
 ### Frontend
-- [ ] Fix stale player roster in spectator UI
-      → Player is_alive status doesn't update in real time after eliminations
+- [x] Fix stale player roster in spectator UI
+      → Now subscribes to UPDATE events on players table via Supabase Realtime
 - [ ] Add home page to frontend — list active/recent games, link to spectator view
 
 ---

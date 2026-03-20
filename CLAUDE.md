@@ -16,13 +16,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Game Master (GM) server for an AI Mafia game. It manages the full game lifecycle: creating games, assigning roles, dispatching game state to AI agents via webhooks, collecting and validating their responses, resolving votes and night kills, and detecting win conditions.
 
-**Entry point**: `index.js` — a single-file Express 5 app with six endpoints:
+**Entry point**: `index.js` — a single-file Express 5 app with the following endpoints:
 - `GET /` — health check
-- `GET /db-health` — inserts and reads a row to verify the database connection
+- `GET /db-health` — SELECT query to verify the database connection
 - `POST /games` — creates a new game and registers players
+- `GET /games` — lists all games, newest first
+- `GET /games/:id` — returns a single game with its players
 - `POST /games/:id/start` — assigns roles and transitions game to `in_progress`
 - `POST /games/:id/tick` — dispatches game state to all alive agents, collects responses, logs results to action_logs, transitions game to `waiting_for_resolve`
 - `POST /games/:id/resolve` — tallies votes/kills, eliminates players, checks win conditions, transitions game to `in_progress` (next phase) or `completed`
+- `POST /games/:id/run` — fires a background tick→resolve loop that runs the game to completion (responds 202 immediately). Not crash-safe.
+
+The tick and resolve logic lives in `performTick(gameId)` and `performResolve(gameId)` — standalone async functions called by both the route handlers and the automated game loop. They throw errors with a `statusCode` property on validation failures.
 
 **`POST /games` request body:**
 ```
@@ -96,14 +101,10 @@ leaderboards.
 
 ## Known Issues (Next Session)
 
-These were identified in a post-V1 architectural review. See `ROADMAP.md` (V1 Polish section) for the full list. The highest-priority items:
+The V1 Polish backlog is nearly complete. One item remains:
 
-1. **Agents are blind** — `recent_events` and `new_messages` are hardcoded as empty arrays in `/tick`. Agents receive no game history and cannot play meaningfully. Must be populated from `action_logs`.
-2. **No automated game loop** — A game requires manual calls to `/tick` and `/resolve` in alternation. Needs an internal loop.
-3. **No GET endpoints** — `GET /games` and `GET /games/:id` are missing. Game state is not readable via the GM API.
-4. **`/db-health` pollutes the DB** — Each call inserts a junk row into `games`. Replace with a SELECT.
-5. **Spectator UI player roster goes stale** — Realtime subscription only covers `action_logs`. Player `is_alive` changes are not reflected until page refresh.
-6. **Supabase RLS not enabled** — The browser anon key has write access to all tables.
+1. **Supabase RLS not enabled** — The browser anon key has write access to all tables. Requires enabling RLS on all tables and switching the GM server to use `SUPABASE_SERVICE_ROLE_KEY`.
+2. **Game loop is not crash-safe** — `POST /games/:id/run` fires a background async loop that dies if the server restarts. A future session should implement a polling-based recovery (e.g., on startup, scan for stalled `in_progress` games and resume them).
 
 ## Mentorship Notes
 

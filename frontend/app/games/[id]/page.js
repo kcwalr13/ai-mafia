@@ -38,7 +38,7 @@ export default function GamePage() {
 
     loadGame();
 
-    // Subscribe to new action_log entries in real time
+    // Subscribe to new action_log entries and player updates in real time
     const channel = supabase
       .channel(`game-${id}`)
       .on(
@@ -51,6 +51,20 @@ export default function GamePage() {
         },
         (payload) => {
           setLogs((prev) => [...prev, payload.new]);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'players',
+          filter: `game_id=eq.${id}`,
+        },
+        (payload) => {
+          setPlayers((prev) =>
+            prev.map((p) => (p.id === payload.new.id ? payload.new : p))
+          );
         }
       )
       .subscribe();
