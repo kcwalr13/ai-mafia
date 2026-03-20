@@ -10,6 +10,56 @@ const ROLE_COLORS = {
   unassigned: 'bg-gray-700 text-gray-300',
 };
 
+function describeAction(action) {
+  if (!action) return 'took no action';
+  if (action.type === 'vote') return `voted for ${action.target}`;
+  if (action.type === 'mafia_kill') return `targeted ${action.target}`;
+  if (action.type === 'abstain') return 'abstained';
+  if (action.type === 'investigate') return `investigated ${action.target}`;
+  if (action.type === 'protect') return `protected ${action.target}`;
+  return action.type;
+}
+
+function LogCard({ log, playerMap }) {
+  const time = new Date(log.created_at).toLocaleTimeString();
+
+  if (log.entry_type === 'elimination') {
+    const { agent_name, role, cause } = log.payload;
+    const causeLabel = cause === 'mafia_kill' ? 'night kill' : cause;
+    return (
+      <div className="bg-red-950 border border-red-800 rounded-lg px-4 py-3 text-sm">
+        <div className="flex items-center justify-between">
+          <span className="font-semibold text-red-300">
+            {agent_name} was eliminated ({causeLabel})
+          </span>
+          <span className="text-gray-500 text-xs">{time}</span>
+        </div>
+        <p className="text-red-400 text-xs mt-1">Role revealed: {role}</p>
+      </div>
+    );
+  }
+
+  // agent_response
+  const agentName = playerMap[log.player_id] ?? 'Unknown';
+  const action = log.payload?.action;
+  const publicMessage = log.payload?.raw?.public_message;
+
+  return (
+    <div className="bg-gray-800 rounded-lg px-4 py-3 text-sm">
+      <div className="flex items-center justify-between">
+        <span className="font-semibold text-white">
+          {agentName}{' '}
+          <span className="font-normal text-gray-300">{describeAction(action)}</span>
+        </span>
+        <span className="text-gray-500 text-xs">{time}</span>
+      </div>
+      {publicMessage && (
+        <p className="text-gray-400 text-xs mt-1 italic">&ldquo;{publicMessage}&rdquo;</p>
+      )}
+    </div>
+  );
+}
+
 export default function GamePage() {
   const { id } = useParams();
   const [game, setGame] = useState(null);
@@ -88,6 +138,8 @@ export default function GamePage() {
     );
   }
 
+  const playerMap = Object.fromEntries(players.map((p) => [p.id, p.agent_name]));
+
   return (
     <div className="min-h-screen bg-gray-950 text-white p-6">
       {/* Header */}
@@ -145,22 +197,7 @@ export default function GamePage() {
           ) : (
             <div className="flex flex-col gap-2">
               {logs.map((log) => (
-                <div
-                  key={log.id}
-                  className="bg-gray-800 rounded-lg px-4 py-3 text-sm"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-gray-400 font-mono text-xs">
-                      {log.entry_type}
-                    </span>
-                    <span className="text-gray-600 text-xs">
-                      {new Date(log.created_at).toLocaleTimeString()}
-                    </span>
-                  </div>
-                  <pre className="text-gray-200 whitespace-pre-wrap break-all text-xs">
-                    {JSON.stringify(log.payload, null, 2)}
-                  </pre>
-                </div>
+                <LogCard key={log.id} log={log} playerMap={playerMap} />
               ))}
             </div>
           )}

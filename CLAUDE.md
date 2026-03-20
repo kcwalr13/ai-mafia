@@ -99,6 +99,11 @@ leaderboards.
 6. Create `frontend/.env.local` with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 7. `cd frontend && npm run dev` — start the spectator UI
 
+**Mock agent (for local testing, run from `/mock-agent`):**
+- `npm install` — install dependencies (first time only)
+- `node index.js` — starts a fake agent on port 4000 that responds immediately
+- Use `bash test-game.sh` to create, start, and run a full game in one command
+
 ## Known Issues (Next Session)
 
 The V1 Polish backlog is nearly complete. One item remains:

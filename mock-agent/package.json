@@ -1,0 +1,12 @@
+{
+  "name": "mock-agent",
+  "version": "1.0.0",
+  "description": "Mock agent webhook server for local testing",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}

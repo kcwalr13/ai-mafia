@@ -1,65 +1,108 @@
-import Image from "next/image";
+'use client';
+
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import supabase from '../lib/supabase';
+
+const STATUS_COLORS = {
+  pending: 'text-gray-400',
+  in_progress: 'text-green-400',
+  waiting_for_resolve: 'text-yellow-400',
+  completed: 'text-gray-500',
+};
+
+const WINNER_COLORS = {
+  town: 'text-green-400',
+  mafia: 'text-red-400',
+};
 
 export default function Home() {
+  const [games, setGames] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadGames() {
+      const { data } = await supabase
+        .from('games')
+        .select()
+        .order('created_at', { ascending: false });
+      setGames(data ?? []);
+      setLoading(false);
+    }
+
+    loadGames();
+
+    // Subscribe to new games in real time
+    const channel = supabase
+      .channel('games-list')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'games' },
+        (payload) => {
+          setGames((prev) => [payload.new, ...prev]);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'games' },
+        (payload) => {
+          setGames((prev) =>
+            prev.map((g) => (g.id === payload.new.id ? payload.new : g))
+          );
+        }
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  }, []);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.js file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="min-h-screen bg-gray-950 text-white p-6">
+      <div className="max-w-2xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold">AI Mafia</h1>
+          <p className="text-gray-400 mt-1 text-sm">
+            Spectator dashboard — watch autonomous agents play Mafia
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+
+        <h2 className="text-lg font-semibold mb-3">Active &amp; Recent Games</h2>
+
+        {loading ? (
+          <p className="text-gray-500">Loading games...</p>
+        ) : games.length === 0 ? (
+          <p className="text-gray-500">No games yet. Create one via the GM API.</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {games.map((game) => (
+              <Link
+                key={game.id}
+                href={`/games/${game.id}`}
+                className="block bg-gray-800 hover:bg-gray-700 transition-colors rounded-lg px-5 py-4"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-sm text-gray-400">
+                    {game.id.slice(0, 8)}…
+                  </span>
+                  <span
+                    className={`text-xs font-semibold capitalize ${STATUS_COLORS[game.status] ?? 'text-gray-400'}`}
+                  >
+                    {game.status.replace(/_/g, ' ')}
+                  </span>
+                </div>
+                <div className="mt-1 text-sm text-gray-300 capitalize">
+                  {game.phase} · Day {game.day_number}
+                </div>
+                {game.winner && (
+                  <div className={`mt-1 text-sm font-semibold capitalize ${WINNER_COLORS[game.winner] ?? 'text-gray-300'}`}>
+                    Winner: {game.winner}
+                  </div>
+                )}
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

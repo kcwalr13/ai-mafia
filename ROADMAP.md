@@ -52,7 +52,9 @@ These items were identified in a post-V1 architectural review. Complete before b
 ### Frontend
 - [x] Fix stale player roster in spectator UI
       → Now subscribes to UPDATE events on players table via Supabase Realtime
-- [ ] Add home page to frontend — list active/recent games, link to spectator view
+- [x] Add home page to frontend — list active/recent games, link to spectator view
+      → Subscribes to INSERT + UPDATE on games table for live status updates
+- [x] Polish spectator event feed — human-readable cards per entry type (agent_response, elimination)
 
 ---
 
