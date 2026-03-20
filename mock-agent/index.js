@@ -8,19 +8,21 @@ function pick(arr) {
 }
 
 app.post('/webhook', (req, res) => {
-  const { phase, agent_role, alive_players, game_id, turn_id } = req.body;
+  const { phase, agent_role, alive_players, mafia_members, game_id, turn_id } = req.body;
 
-  // The agent cannot vote/kill itself — filter self out
-  // We don't know our own name from the payload, but alive_players includes us.
-  // Since all 4 players share this webhook, we just pick any alive player.
-  // In a real agent you'd track your own name; for testing this is fine.
+  // For night kills, target a non-mafia player using the mafia_members list.
+  // For votes, pick any alive player (we don't know our own name here).
+  const townPlayers = mafia_members
+    ? alive_players.filter(name => !mafia_members.includes(name))
+    : alive_players;
 
   let action;
 
   if (phase === 'day') {
     action = { type: 'vote', target: pick(alive_players) };
   } else if (phase === 'night' && agent_role === 'mafia') {
-    action = { type: 'mafia_kill', target: pick(alive_players) };
+    // Kill a town player if possible, otherwise fall back to any alive player
+    action = { type: 'mafia_kill', target: pick(townPlayers.length ? townPlayers : alive_players) };
   } else {
     // Town at night has nothing to do
     action = { type: 'abstain' };

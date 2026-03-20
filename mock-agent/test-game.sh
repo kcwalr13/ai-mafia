@@ -11,8 +11,12 @@ RESPONSE=$(curl -s -X POST "$BASE/games" \
     {\"agent_name\":\"Alice\",\"webhook_url\":\"$WEBHOOK\"},
     {\"agent_name\":\"Bob\",\"webhook_url\":\"$WEBHOOK\"},
     {\"agent_name\":\"Carol\",\"webhook_url\":\"$WEBHOOK\"},
-    {\"agent_name\":\"Dave\",\"webhook_url\":\"$WEBHOOK\"}
-  ]}")
+    {\"agent_name\":\"Dave\",\"webhook_url\":\"$WEBHOOK\"},
+    {\"agent_name\":\"Eve\",\"webhook_url\":\"$WEBHOOK\"},
+    {\"agent_name\":\"Frank\",\"webhook_url\":\"$WEBHOOK\"},
+    {\"agent_name\":\"Grace\",\"webhook_url\":\"$WEBHOOK\"},
+    {\"agent_name\":\"Hank\",\"webhook_url\":\"$WEBHOOK\"}
+  ],\"config\":{\"roles\":{\"town\":6,\"mafia\":2}}}")
 echo "$RESPONSE"
 
 GAME_ID=$(echo "$RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)

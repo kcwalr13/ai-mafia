@@ -117,10 +117,10 @@ stage before voting, so agents can reason publicly, accuse, defend, and bluff.
 Currently mafia agents receive their own role but don't know who else is mafia.
 In real Mafia, mafia members know each other — this is a core mechanic.
 
-- [ ] Add `mafia_members` field to tick payload, populated only when agent_role === 'mafia'
+- [x] Add `mafia_members` field to tick payload, populated only when agent_role === 'mafia'
       → Value: array of agent_names of all alive mafia players (including self)
       → Town players receive `mafia_members: null`
-- [ ] Update api_contract.json with mafia_members field
+- [x] Update api_contract.json with mafia_members field
 
 ### Per-Agent Personality
 Allows operators to give each agent a distinct character, making games more

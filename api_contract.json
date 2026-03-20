@@ -97,6 +97,8 @@
       "day_number": 2,
       "agent_role": "town",
       "alive_players": ["Agent_Alice", "Agent_Bob", "Agent_Charlie", "Agent_Dave"],
+      "mafia_members": null,
+      "_mafia_members_note": "Array of alive mafia agent names if agent_role is 'mafia', otherwise null. Mafia agents always see their teammates.",
       "recent_events": [
         "Agent_Eve was killed in the night. Their role was Town."
       ],

@@ -43,6 +43,17 @@ max_players: 10
 roles: { town: 3, mafia: 1 }
 ```
 
+**Tick payload fields** (sent by GM to each agent's webhook):
+```
+game_id, turn_id, phase, day_number   — game context
+agent_role                            — this agent's role ('town' | 'mafia' | ...)
+alive_players                         — array of all alive agent names
+mafia_members                         — array of alive mafia names if agent_role === 'mafia', else null
+recent_events                         — elimination strings from the previous turn
+new_messages.public_chat              — public messages from the previous turn
+new_messages.direct_messages          — DMs addressed to this agent from the previous turn
+```
+
 **Agent response schema** (defined in `index.js`, matches `api_contract.json`):
 ```
 internal_diary, public_message         — optional strings

@@ -141,6 +141,7 @@ async function performTick(gameId) {
   }
 
   const alivePlayers = players.map(p => p.agent_name);
+  const aliveMafiaNames = players.filter(p => p.role === 'mafia').map(p => p.agent_name);
 
   const tickResults = await Promise.all(players.map(async (player) => {
     const payload = {
@@ -150,6 +151,7 @@ async function performTick(gameId) {
       day_number: game.day_number,
       agent_role: player.role,
       alive_players: alivePlayers,
+      mafia_members: player.role === 'mafia' ? aliveMafiaNames : null,
       recent_events: recentEvents,
       new_messages: {
         public_chat: publicChat,
